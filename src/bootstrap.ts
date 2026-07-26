@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   try {
     await page.waitForSelector(cfg.gvoice.readySelector, { timeout: 5 * 60_000 });
     if (needsLogin(page)) throw new Error('still on login page');
-    log.info('✅ Logged in. Profile saved to ' + cfg.browser.userDataDir);
+    log.info('Logged in. Profile saved to ' + cfg.browser.userDataDir);
     log.info('You can now run: npm start');
   } catch (e) {
     log.error('Bootstrap did not reach the messages view: ' + (e as Error).message);

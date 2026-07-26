@@ -33,7 +33,7 @@ function heartbeat(): void {
 }
 
 async function alertReauth(): Promise<void> {
-  log.error('⚠️  Google session needs re-auth. Run `npm run bootstrap`.');
+  log.error('Google session needs re-auth. Run `npm run bootstrap`.');
   if (cfg.health.reauthAlertUrl) {
     try {
       await fetch(cfg.health.reauthAlertUrl, {
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     }
     log.warn('ready selector not found; continuing anyway');
   }
-  log.info('✅ session live, watching for messages');
+  log.info('session live, watching for messages');
   heartbeat();
 
   // --- event-driven trigger: nudge the SPA to fetch on real changes ---
