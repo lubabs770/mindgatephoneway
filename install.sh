@@ -30,7 +30,10 @@ cd "$DIR"
 say "installing deps"
 npm install
 
-say "done. next:"
-echo "  cd $DIR"
-echo "  npm run bootstrap   # headful login once"
-echo "  npm start           # headless daemon"
+# NOTE: this runs in a subshell (curl | bash), so a `cd` here can't move the
+# caller's shell. Hand them a paste-ready block instead.
+say "done. copy-paste to start:"
+echo
+echo "  cd $DIR && npm run bootstrap   # headful Google login, once"
+echo "  npm start                      # headless daemon"
+echo
