@@ -14,7 +14,24 @@ mutations, not blind polling.
 of them with a `.env` file (see [`.env.example`](./.env.example)). No other file
 hard-codes config.
 
-## Setup
+## Install (one line)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lubabs770/mindgatephoneway/main/install.sh | bash
+```
+
+Clones to `~/mindgatephoneway`, installs deps, prints next steps. Override target
+with `MGP_DIR=/path`.
+
+> **Private repo?** `raw.githubusercontent.com` needs auth for private repos, so
+> the bare curl above 401s until the repo is public. While it's private, use `gh`
+> (it handles auth):
+> ```bash
+> gh repo clone lubabs770/mindgatephoneway ~/mindgatephoneway && \
+>   cd ~/mindgatephoneway && bash install.sh
+> ```
+
+## Setup (manual)
 
 ```bash
 npm install
