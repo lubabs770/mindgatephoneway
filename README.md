@@ -8,6 +8,11 @@ mutations, not blind polling.
 > No official Google API exists for personal Voice. Every reliable approach
 > rides the logged-in web session; this is that, hardened for 24/7.
 
+> **⚠️ Assumes an account with NO MFA/2FA.** Re-auth is treated as a plain
+> user/pass bootstrap. If the account has 2FA enabled, every re-login throws an
+> interactive challenge that can't be automated — you'd have to run
+> `npm run bootstrap` headful and clear it by hand each time. Not built for that.
+
 ## All configuration lives in one place
 
 **[`config.js`](./config.js)** — every setting, with sane defaults. Override any
