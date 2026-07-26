@@ -96,8 +96,8 @@ const config: Config = {
 
   // ── Sink (where captured messages land) ──────────────────────
   sink: {
-    // 'sqlite' | 'jsonl' | 'webhook'
-    type: env('MGP_SINK', 'sqlite') as SinkType,
+    // 'jsonl' (default, zero native deps) | 'sqlite' (needs native build) | 'webhook'
+    type: env('MGP_SINK', 'jsonl') as SinkType,
     sqlitePath: env('MGP_SQLITE_PATH', path.join(ROOT, 'data', 'messages.db')),
     jsonlPath: env('MGP_JSONL_PATH', path.join(ROOT, 'data', 'messages.jsonl')),
     webhookUrl: env('MGP_WEBHOOK_URL', ''), // POST each new message here

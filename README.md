@@ -67,6 +67,18 @@ the daemon runs headless off it.
   responses. Structured, resilient to cosmetic UI changes.
 - **`dom`** — fall back to scraping the rendered thread list.
 
+## Sinks (`MGP_SINK`)
+
+- **`jsonl`** (default) — appends to `data/messages.jsonl`. Pure JS, zero native
+  deps, runs on a fresh clone with no build step.
+- **`sqlite`** — `data/messages.db`. Needs the `better-sqlite3` **native addon**;
+  it's an optional dependency so install never hard-fails. If your npm blocks
+  install scripts (e.g. lavamoat allow-scripts), build it explicitly:
+  ```bash
+  npm rebuild better-sqlite3 --build-from-source
+  ```
+- **`webhook`** — POSTs each new message to `MGP_WEBHOOK_URL`.
+
 ## Tuning the extractor
 
 Google's `voiceclient` JSON schema is undocumented and shifts. Run once with

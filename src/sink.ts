@@ -13,8 +13,18 @@ function ensureDir(p: string): void {
 }
 
 function makeSqlite(): Sink {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const Database = require('better-sqlite3');
+  let Database: any;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    Database = require('better-sqlite3');
+  } catch (e) {
+    throw new Error(
+      "sqlite sink needs the better-sqlite3 native addon, which isn't built. " +
+        'Either run `npm rebuild better-sqlite3 --build-from-source`, or use the ' +
+        'zero-dependency default with `MGP_SINK=jsonl`. Original: ' +
+        (e as Error).message,
+    );
+  }
   ensureDir(cfg.sink.sqlitePath);
   const db = new Database(cfg.sink.sqlitePath);
   db.pragma('journal_mode = WAL');
