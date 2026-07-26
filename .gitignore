@@ -1,0 +1,6 @@
+node_modules/
+.env
+.gvoice-profile/
+data/
+*.log
+.DS_Store
