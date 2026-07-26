@@ -2,7 +2,7 @@
  * Long-running daemon.
  *  - launches the persistent stealth session (headless)
  *  - sniffs Google Voice's own JSON responses (config.capture.mode='sniff')
- *  - reacts to DOM mutations, not blind polling (watcher.js)
+ *  - reacts to DOM mutations, not blind polling (watcher.ts)
  *  - dedupes + writes to the configured sink
  *  - detects re-auth and alerts instead of dying silently
  *
@@ -10,27 +10,29 @@
  *   npm run bootstrap   # headful, once
  *   npm start           # headless daemon
  */
-const fs = require('fs');
-const path = require('path');
-const cfg = require('../config');
-const log = require('./log');
-const { launch, needsLogin } = require('./browser');
-const { createSink } = require('./sink');
-const { extract } = require('./extractor');
-const watcher = require('./watcher');
+import * as fs from 'fs';
+import * as path from 'path';
+import type { HTTPResponse } from 'puppeteer';
+import cfg from '../config';
+import log from './log';
+import { launch, needsLogin } from './browser';
+import { createSink } from './sink';
+import { extract } from './extractor';
+import * as watcher from './watcher';
+import type { Message, Sink } from './types';
 
-const seen = new Set(); // in-memory dedupe (sink is also id-idempotent)
+const seen = new Set<string>(); // in-memory dedupe (sink is also id-idempotent)
 
-function heartbeat() {
+function heartbeat(): void {
   try {
     fs.mkdirSync(path.dirname(cfg.health.heartbeatPath), { recursive: true });
     fs.writeFileSync(cfg.health.heartbeatPath, String(Date.now()));
   } catch (e) {
-    log.warn('heartbeat write failed: ' + e.message);
+    log.warn('heartbeat write failed: ' + (e as Error).message);
   }
 }
 
-async function alertReauth() {
+async function alertReauth(): Promise<void> {
   log.error('⚠️  Google session needs re-auth. Run `npm run bootstrap`.');
   if (cfg.health.reauthAlertUrl) {
     try {
@@ -40,17 +42,17 @@ async function alertReauth() {
         body: JSON.stringify({ event: 'reauth_required', at: Date.now() }),
       });
     } catch (e) {
-      log.warn('reauth alert failed: ' + e.message);
+      log.warn('reauth alert failed: ' + (e as Error).message);
     }
   }
 }
 
-function persist(sink, messages) {
+async function persist(sink: Sink, messages: Message[]): Promise<void> {
   let fresh = 0;
   for (const m of messages) {
     if (seen.has(m.id)) continue;
     seen.add(m.id);
-    if (sink.save(m)) fresh++;
+    if (await sink.save(m)) fresh++;
   }
   if (fresh) {
     heartbeat();
@@ -58,13 +60,13 @@ function persist(sink, messages) {
   }
 }
 
-async function main() {
+async function main(): Promise<void> {
   const sink = createSink();
   const { browser, page } = await launch();
 
   // --- sniff mode: capture Google's own JSON payloads as they arrive ---
   if (cfg.capture.mode === 'sniff') {
-    page.on('response', async (resp) => {
+    page.on('response', async (resp: HTTPResponse) => {
       const url = resp.url();
       if (!url.includes(cfg.gvoice.apiHostMatch)) return;
       if (resp.status() !== 200) return;
@@ -74,9 +76,9 @@ async function main() {
         const clean = text.replace(/^\)\]\}'\s*/, '');
         const payload = JSON.parse(clean);
         const messages = extract(payload);
-        if (messages.length) persist(sink, messages);
+        if (messages.length) await persist(sink, messages);
       } catch (e) {
-        log.debug('non-JSON or parse skip: ' + e.message);
+        log.debug('non-JSON or parse skip: ' + (e as Error).message);
       }
     });
   }
@@ -92,7 +94,11 @@ async function main() {
   try {
     await page.waitForSelector(cfg.gvoice.readySelector, { timeout: cfg.browser.timeout });
   } catch {
-    if (needsLogin(page)) { await alertReauth(); await browser.close(); process.exit(2); }
+    if (needsLogin(page)) {
+      await alertReauth();
+      await browser.close();
+      process.exit(2);
+    }
     log.warn('ready selector not found; continuing anyway');
   }
   log.info('✅ session live, watching for messages');
@@ -102,13 +108,16 @@ async function main() {
   const detach = await watcher.attach(page, async (reason) => {
     // A light reload re-fires the thread-list fetch, which the sniffer catches.
     // In 'dom' mode you'd scrape the DOM here instead.
-    if (needsLogin(page)) { await alertReauth(); return; }
+    if (needsLogin(page)) {
+      await alertReauth();
+      return;
+    }
     log.debug(`refresh trigger (${reason})`);
     await page.reload({ waitUntil: 'domcontentloaded' }).catch((e) => log.warn('reload: ' + e.message));
   });
 
   // graceful shutdown
-  const bye = async () => {
+  const bye = async (): Promise<void> => {
     log.info('shutting down…');
     detach?.();
     await browser.close().catch(() => {});
@@ -118,7 +127,7 @@ async function main() {
   process.on('SIGTERM', bye);
 }
 
-main().catch((e) => {
+main().catch((e: Error) => {
   log.error('fatal: ' + (e.stack || e.message));
   process.exit(1);
 });

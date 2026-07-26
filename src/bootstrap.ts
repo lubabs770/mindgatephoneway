@@ -5,11 +5,11 @@
  *
  *   npm run bootstrap
  */
-const cfg = require('../config');
-const { launch, needsLogin } = require('./browser');
-const log = require('./log');
+import cfg from '../config';
+import { launch, needsLogin } from './browser';
+import log from './log';
 
-(async () => {
+async function main(): Promise<void> {
   const { browser, page } = await launch({ headless: false });
   await page.goto(cfg.gvoice.messagesUrl, { waitUntil: 'domcontentloaded' });
 
@@ -22,10 +22,12 @@ const log = require('./log');
     log.info('✅ Logged in. Profile saved to ' + cfg.browser.userDataDir);
     log.info('You can now run: npm start');
   } catch (e) {
-    log.error('Bootstrap did not reach the messages view: ' + e.message);
+    log.error('Bootstrap did not reach the messages view: ' + (e as Error).message);
   } finally {
     // Give the profile a beat to flush to disk before closing.
-    await page.waitForTimeout(2000).catch(() => {});
+    await new Promise((r) => setTimeout(r, 2000));
     await browser.close();
   }
-})();
+}
+
+void main();

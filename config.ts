@@ -5,18 +5,47 @@
  * .env.example). Nothing else in the repo hard-codes settings; every
  * module imports from here.
  */
-
-require('dotenv').config();
+import 'dotenv/config';
+import * as path from 'path';
+import type { CaptureMode, SinkType, LogLevel } from './src/types';
 
 // tiny helpers so env overrides are painless
-const env  = (k, d) => (process.env[k] !== undefined ? process.env[k] : d);
-const bool = (k, d) => (process.env[k] !== undefined ? /^(1|true|yes|on)$/i.test(process.env[k]) : d);
-const int  = (k, d) => (process.env[k] !== undefined ? parseInt(process.env[k], 10) : d);
+const env = (k: string, d: string): string => (process.env[k] !== undefined ? (process.env[k] as string) : d);
+const bool = (k: string, d: boolean): boolean =>
+  process.env[k] !== undefined ? /^(1|true|yes|on)$/i.test(process.env[k] as string) : d;
+const int = (k: string, d: number): number =>
+  process.env[k] !== undefined ? parseInt(process.env[k] as string, 10) : d;
 
-const path = require('path');
 const ROOT = __dirname;
 
-module.exports = {
+export interface Config {
+  browser: {
+    userDataDir: string;
+    channel: string;
+    headless: boolean;
+    args: string[];
+    timeout: number;
+  };
+  gvoice: {
+    origin: string;
+    messagesUrl: string;
+    apiHostMatch: string;
+    readySelector: string;
+    loginHostMatch: string;
+  };
+  capture: { mode: CaptureMode; resyncEveryMs: number };
+  auth: { sapisidCookie: string; hashOrigin: string };
+  sink: {
+    type: SinkType;
+    sqlitePath: string;
+    jsonlPath: string;
+    webhookUrl: string;
+  };
+  health: { heartbeatPath: string; reauthAlertUrl: string };
+  log: { level: LogLevel };
+}
+
+const config: Config = {
   // ── Browser / session ────────────────────────────────────────
   browser: {
     // Persistent Chrome profile. Login once, reused forever.
@@ -37,7 +66,7 @@ module.exports = {
 
   // ── Google Voice ─────────────────────────────────────────────
   gvoice: {
-    origin:      'https://voice.google.com',
+    origin: 'https://voice.google.com',
     messagesUrl: env('MGP_GV_URL', 'https://voice.google.com/u/0/messages'),
     // The internal JSON endpoints ride this host. Response-sniffer matches it.
     apiHostMatch: 'clients6.google.com/voice/',
@@ -49,9 +78,9 @@ module.exports = {
 
   // ── Capture strategy ─────────────────────────────────────────
   capture: {
-    // 'sniff'  -> read Google's own JSON responses (structured, preferred)
-    // 'dom'    -> MutationObserver over the thread list (fallback)
-    mode: env('MGP_CAPTURE_MODE', 'sniff'),
+    // 'sniff' -> read Google's own JSON responses (structured, preferred)
+    // 'dom'   -> MutationObserver over the thread list (fallback)
+    mode: env('MGP_CAPTURE_MODE', 'sniff') as CaptureMode,
     // Event-driven: watcher fires only when the UI changes (no blind poll).
     // This is a *safety net* re-sync interval, not the primary trigger.
     resyncEveryMs: int('MGP_RESYNC_MS', 5 * 60_000),
@@ -68,9 +97,9 @@ module.exports = {
   // ── Sink (where captured messages land) ──────────────────────
   sink: {
     // 'sqlite' | 'jsonl' | 'webhook'
-    type: env('MGP_SINK', 'sqlite'),
+    type: env('MGP_SINK', 'sqlite') as SinkType,
     sqlitePath: env('MGP_SQLITE_PATH', path.join(ROOT, 'data', 'messages.db')),
-    jsonlPath:  env('MGP_JSONL_PATH',  path.join(ROOT, 'data', 'messages.jsonl')),
+    jsonlPath: env('MGP_JSONL_PATH', path.join(ROOT, 'data', 'messages.jsonl')),
     webhookUrl: env('MGP_WEBHOOK_URL', ''), // POST each new message here
   },
 
@@ -84,6 +113,8 @@ module.exports = {
 
   // ── Logging ──────────────────────────────────────────────────
   log: {
-    level: env('MGP_LOG_LEVEL', 'info'), // 'debug' | 'info' | 'warn' | 'error'
+    level: env('MGP_LOG_LEVEL', 'info') as LogLevel, // 'debug' | 'info' | 'warn' | 'error'
   },
 };
+
+export default config;

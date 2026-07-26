@@ -15,7 +15,7 @@ mutations, not blind polling.
 
 ## All configuration lives in one place
 
-**[`config.js`](./config.js)** — every setting, with sane defaults. Override any
+**[`config.ts`](./config.ts)** — every setting, with sane defaults. Override any
 of them with a `.env` file (see [`.env.example`](./.env.example)). No other file
 hard-codes config.
 
@@ -52,14 +52,14 @@ the daemon runs headless off it.
 
 | Piece | File | Job |
 |-------|------|-----|
-| Config | `config.js` | single source of truth |
-| Browser | `src/browser.js` | persistent + stealth Chrome launch |
-| Bootstrap | `src/bootstrap.js` | one-time headful login |
-| Daemon | `src/index.js` | orchestrates capture + dedupe + sink |
-| Watcher | `src/watcher.js` | MutationObserver → event trigger (no poll) |
-| Extractor | `src/extractor.js` | Voice JSON → normalized messages |
-| Sink | `src/sink.js` | sqlite / jsonl / webhook |
-| Auth | `src/auth.js` | SAPISIDHASH helper (direct-HTTP path, optional) |
+| Config | `config.ts` | single source of truth |
+| Browser | `src/browser.ts` | persistent + stealth Chrome launch |
+| Bootstrap | `src/bootstrap.ts` | one-time headful login |
+| Daemon | `src/index.ts` | orchestrates capture + dedupe + sink |
+| Watcher | `src/watcher.ts` | MutationObserver → event trigger (no poll) |
+| Extractor | `src/extractor.ts` | Voice JSON → normalized messages |
+| Sink | `src/sink.ts` | sqlite / jsonl / webhook |
+| Auth | `src/auth.ts` | SAPISIDHASH helper (direct-HTTP path, optional) |
 
 ## Capture modes (`MGP_CAPTURE_MODE`)
 
@@ -71,7 +71,7 @@ the daemon runs headless off it.
 
 Google's `voiceclient` JSON schema is undocumented and shifts. Run once with
 `MGP_LOG_LEVEL=debug`, inspect the raw payloads, and tighten `normalize()` in
-`src/extractor.js` to match. Downstream only depends on the normalized shape.
+`src/extractor.ts` to match. Downstream only depends on the normalized shape.
 
 ## Long-running notes
 

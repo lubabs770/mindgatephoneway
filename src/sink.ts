@@ -2,16 +2,18 @@
  * Where captured messages land. Selected by config.sink.type.
  * Dedupe is the caller's job via `id`; each sink is idempotent on id anyway.
  */
-const fs = require('fs');
-const path = require('path');
-const cfg = require('../config');
-const log = require('./log');
+import * as fs from 'fs';
+import * as path from 'path';
+import cfg from '../config';
+import log from './log';
+import type { Message, Sink } from './types';
 
-function ensureDir(p) {
+function ensureDir(p: string): void {
   fs.mkdirSync(path.dirname(p), { recursive: true });
 }
 
-function makeSqlite() {
+function makeSqlite(): Sink {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const Database = require('better-sqlite3');
   ensureDir(cfg.sink.sqlitePath);
   const db = new Database(cfg.sink.sqlitePath);
@@ -30,31 +32,36 @@ function makeSqlite() {
     (id, thread_id, direction, sender, body, ts, raw, captured)
     VALUES (@id, @threadId, @direction, @sender, @body, @ts, @raw, @captured)`);
   return {
-    save(m) {
+    save(m: Message): boolean {
       const info = stmt.run({
-        id: m.id, threadId: m.threadId ?? null, direction: m.direction ?? null,
-        sender: m.sender ?? null, body: m.body ?? null, ts: m.ts ?? null,
-        raw: JSON.stringify(m.raw ?? m), captured: Date.now(),
+        id: m.id,
+        threadId: m.threadId ?? null,
+        direction: m.direction ?? null,
+        sender: m.sender ?? null,
+        body: m.body ?? null,
+        ts: m.ts ?? null,
+        raw: JSON.stringify(m.raw ?? m),
+        captured: Date.now(),
       });
       return info.changes > 0; // true = newly inserted
     },
   };
 }
 
-function makeJsonl() {
+function makeJsonl(): Sink {
   ensureDir(cfg.sink.jsonlPath);
   return {
-    save(m) {
+    save(m: Message): boolean {
       fs.appendFileSync(cfg.sink.jsonlPath, JSON.stringify({ ...m, captured: Date.now() }) + '\n');
       return true;
     },
   };
 }
 
-function makeWebhook() {
+function makeWebhook(): Sink {
   if (!cfg.sink.webhookUrl) throw new Error('MGP_WEBHOOK_URL is required for webhook sink');
   return {
-    async save(m) {
+    async save(m: Message): Promise<boolean> {
       await fetch(cfg.sink.webhookUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -65,14 +72,16 @@ function makeWebhook() {
   };
 }
 
-function createSink() {
+export function createSink(): Sink {
   log.info(`sink = ${cfg.sink.type}`);
   switch (cfg.sink.type) {
-    case 'sqlite':  return makeSqlite();
-    case 'jsonl':   return makeJsonl();
-    case 'webhook': return makeWebhook();
-    default: throw new Error(`unknown sink type: ${cfg.sink.type}`);
+    case 'sqlite':
+      return makeSqlite();
+    case 'jsonl':
+      return makeJsonl();
+    case 'webhook':
+      return makeWebhook();
+    default:
+      throw new Error(`unknown sink type: ${cfg.sink.type}`);
   }
 }
-
-module.exports = { createSink };

@@ -2,12 +2,15 @@
   "name": "mindgatephoneway",
   "version": "0.1.0",
   "private": true,
-  "description": "Long-running Google Voice message capture via a persistent, stealth Chrome session. All config in config.js.",
-  "main": "src/index.js",
+  "description": "Long-running Google Voice message capture via a persistent, stealth Chrome session. All config in config.ts.",
+  "main": "dist/src/index.js",
   "scripts": {
-    "bootstrap": "node src/bootstrap.js",
-    "start": "node src/index.js",
-    "dev": "MGP_HEADLESS=false node src/index.js"
+    "bootstrap": "tsx src/bootstrap.ts",
+    "start": "tsx src/index.ts",
+    "dev": "MGP_HEADLESS=false tsx src/index.ts",
+    "build": "tsc",
+    "start:prod": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=20"
@@ -15,8 +18,14 @@
   "dependencies": {
     "better-sqlite3": "^11.8.0",
     "dotenv": "^16.4.7",
+    "puppeteer": "^24.1.0",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "puppeteer": "^24.1.0"
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
   }
 }
