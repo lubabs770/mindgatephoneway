@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mindgatephoneway one-line installer.
+# mindgatephoneway one-line installer. Clones the repo, nothing else.
 #   curl -fsSL https://raw.githubusercontent.com/lubabs770/mindgatephoneway/main/install.sh | bash
 set -euo pipefail
 
@@ -9,9 +9,7 @@ DIR="${MGP_DIR:-$HOME/mindgatephoneway}"
 say() { printf '\033[1;36m[mgp]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[mgp] %s\033[0m\n' "$*" >&2; exit 1; }
 
-command -v git  >/dev/null || die "git not found"
-command -v node >/dev/null || die "node not found (need >=20)"
-command -v npm  >/dev/null || die "npm not found"
+command -v git >/dev/null || die "git not found"
 
 if [ -d "$DIR/.git" ]; then
   say "updating existing checkout at $DIR"
@@ -26,14 +24,11 @@ else
   fi
 fi
 
-cd "$DIR"
-say "installing deps"
-npm install
-
-# NOTE: this runs in a subshell (curl | bash), so a `cd` here can't move the
-# caller's shell. Hand them a paste-ready block instead.
-say "done. copy-paste to start:"
+# curl | bash runs in a subshell, so a `cd` here can't move the caller's shell.
+say "done. next:"
 echo
-echo "  cd $DIR && npm run bootstrap   # headful Google login, once"
-echo "  npm start                      # headless daemon"
+echo "  cd $DIR"
+echo "  npm install"
+echo "  npm run bootstrap   # headful Google login, once"
+echo "  npm start           # headless daemon"
 echo
