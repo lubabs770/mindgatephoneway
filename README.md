@@ -13,12 +13,20 @@ mutations, not blind polling.
 > interactive challenge that can't be automated — you'd have to run
 > `npm run bootstrap` headful and clear it by hand each time. Not built for that.
 
+<br>
+
+---
+
+<br>
+
 ## All configuration lives in one place
 
 **[`config.ts`](./config.ts)** — every setting, with sane defaults, as plain
 values you edit directly. There is **no `.env` layer**: nothing here is a secret
 (the Google session lives in the Chrome profile dir, not in config), so a second
 copy of every key would only drift out of sync. No other file hard-codes config.
+
+<br>
 
 ### What's in there
 
@@ -41,6 +49,12 @@ Paths are relative to the repo root. Empty strings (`webhookUrl`,
 `--headful` to the daemon so you can watch it work. `npm run bootstrap` is
 always headful.
 
+<br>
+
+---
+
+<br>
+
 ## Install (one line)
 
 ```bash
@@ -58,6 +72,12 @@ with `MGP_DIR=/path`.
 >   cd ~/mindgatephoneway && bash install.sh
 > ```
 
+<br>
+
+---
+
+<br>
+
 ## Setup (manual)
 
 ```bash
@@ -69,6 +89,12 @@ npm start           # headless daemon, reuses the saved profile
 Bootstrap is headful so you can clear any interactive Google challenge. Once you
 reach the messages view, the profile at `.gvoice-profile/` holds the session and
 the daemon runs headless off it.
+
+<br>
+
+---
+
+<br>
 
 ## How it works
 
@@ -83,7 +109,15 @@ the daemon runs headless off it.
 | Sink | `src/sink.ts` | sqlite / jsonl / webhook |
 | Auth | `src/auth.ts` | SAPISIDHASH helper (direct-HTTP path, optional) |
 
+<br>
+
+---
+
+<br>
+
 ## How to use it
+
+<br>
 
 ### As a daemon (the normal path)
 
@@ -99,6 +133,8 @@ The daemon owns the loop: launch → sniff responses → extract → dedupe → 
 heartbeat. It exits `2` when the Google session is dead (re-run `bootstrap`) and
 `1` on any other fatal. That exit code is the supervisor's cue to alert rather
 than restart-loop.
+
+<br>
 
 ### Reading what it captured
 
@@ -122,6 +158,8 @@ sqlite3 data/messages.db "SELECT sender, body FROM messages ORDER BY ts DESC LIM
 `webhook` sink — one `POST` per new message to `sink.webhookUrl`,
 `content-type: application/json`, body = the `Message` object (no `captured`
 field; add your own receive timestamp).
+
+<br>
 
 ### As a library
 
@@ -154,7 +192,15 @@ const detach = await watcher.attach(page, async () => {
 // …later: detach(); await browser.close();
 ```
 
+<br>
+
+---
+
+<br>
+
 ## Exposed API
+
+<br>
 
 ### `config.ts`
 
@@ -162,6 +208,8 @@ const detach = await watcher.attach(page, async () => {
 |--------|------|-------|
 | `default` | `Config` | the whole settings object; import as `cfg` |
 | `Config` | `interface` | shape of the above |
+
+<br>
 
 ### `src/types.ts` — the contracts everything else speaks
 
@@ -173,6 +221,8 @@ const detach = await watcher.attach(page, async () => {
 | `SinkType` | `'sqlite' \| 'jsonl' \| 'webhook'` | |
 | `LogLevel` | `'debug' \| 'info' \| 'warn' \| 'error'` | |
 
+<br>
+
 ### `src/browser.ts`
 
 | Export | Signature | Notes |
@@ -181,11 +231,15 @@ const detach = await watcher.attach(page, async () => {
 | `needsLogin` | `(page: Page) => boolean` | true when the current URL bounced to `accounts.google.com` |
 | `Session` | `interface` | `{ browser: Browser; page: Page }` |
 
+<br>
+
 ### `src/extractor.ts`
 
 | Export | Signature | Notes |
 |--------|-----------|-------|
 | `extract` | `(payload: unknown) => Message[]` | parsed Voice JSON → normalized messages. Never throws; unrecognized records are dropped with a `debug` log. Pure — safe to unit-test against saved payloads. |
+
+<br>
 
 ### `src/sink.ts`
 
@@ -199,6 +253,8 @@ Rolling your own sink is just the interface — no registration needed:
 const memory: Sink = { save: (m) => (console.log(m.body), true) };
 ```
 
+<br>
+
 ### `src/watcher.ts`
 
 | Export | Signature | Notes |
@@ -209,6 +265,8 @@ const memory: Sink = { save: (m) => (console.log(m.body), true) };
 
 `attach` calls `page.exposeFunction('__mgpOnMutation', …)` — that name is taken;
 don't expose your own function under it.
+
+<br>
 
 ### `src/auth.ts` — optional, direct-HTTP path only
 
@@ -225,6 +283,8 @@ const headers = {
 };
 ```
 
+<br>
+
 ### `src/log.ts`
 
 | Export | Signature | Notes |
@@ -232,11 +292,23 @@ const headers = {
 | `debug` / `info` / `warn` / `error` | `(...args: unknown[]) => void` | level-filtered by `cfg.log.level`, read **once** at import — changing it at runtime has no effect. `error` goes to stderr, the rest to stdout. |
 | `default` | `{ debug, info, warn, error }` | same four, bundled |
 
+<br>
+
+---
+
+<br>
+
 ## Capture modes (`capture.mode`)
 
 - **`sniff`** (default) — read Google's own `clients6.google.com/voice/` JSON
   responses. Structured, resilient to cosmetic UI changes.
 - **`dom`** — fall back to scraping the rendered thread list.
+
+<br>
+
+---
+
+<br>
 
 ## Sinks (`sink.type`)
 
@@ -250,12 +322,24 @@ const headers = {
   ```
 - **`webhook`** — POSTs each new message to `sink.webhookUrl`.
 
+<br>
+
+---
+
+<br>
+
 ## Tuning the extractor
 
 Google's `voiceclient` JSON schema is undocumented and shifts. Set
 `log.level: 'debug'` in `config.ts`, run once, inspect the raw payloads, and
 tighten `normalize()` in
 `src/extractor.ts` to match. Downstream only depends on the normalized shape.
+
+<br>
+
+---
+
+<br>
 
 ## Long-running notes
 
@@ -265,6 +349,12 @@ tighten `normalize()` in
   (`health.reauthAlertUrl`) instead of dying silently; re-run `npm run bootstrap`.
 - Uses the real Chrome channel + `puppeteer-extra-plugin-stealth` to reduce
   bot-flagging.
+
+<br>
+
+---
+
+<br>
 
 ## Scope / ethics
 
