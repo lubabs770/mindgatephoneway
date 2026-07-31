@@ -19,6 +19,52 @@ mutations, not blind polling.
 of them with a `.env` file (see [`.env.example`](./.env.example)). No other file
 hard-codes config.
 
+### Default config, in full
+
+Nothing below needs to be set — this is what you get on a fresh clone. Copy it to
+`.env` and uncomment only the lines you want to change.
+
+```dotenv
+# ── Browser / session ──
+MGP_PROFILE_DIR=./.gvoice-profile     # persistent Chrome profile; login once
+MGP_CHROME_CHANNEL=chrome             # real Chrome, not bundled Chromium
+MGP_HEADLESS=true                     # bootstrap always forces headful anyway
+MGP_TIMEOUT_MS=60000                  # nav/selector wait before giving up
+
+# ── Google Voice ──
+MGP_GV_URL=https://voice.google.com/u/0/messages
+MGP_READY_SELECTOR=gv-thread-list, gv-annotation   # DOM proof we're logged in
+
+# ── Capture ──
+MGP_CAPTURE_MODE=sniff                # sniff (Google's JSON) | dom (scrape)
+MGP_RESYNC_MS=300000                  # safety-net re-sync; capture is event-driven
+
+# ── Sink ──
+MGP_SINK=jsonl                        # jsonl | sqlite | webhook
+MGP_JSONL_PATH=./data/messages.jsonl
+MGP_SQLITE_PATH=./data/messages.db    # only used when MGP_SINK=sqlite
+MGP_WEBHOOK_URL=                      # required when MGP_SINK=webhook
+
+# ── Health ──
+MGP_HEARTBEAT=./data/heartbeat        # touched on every successful capture
+MGP_REAUTH_ALERT_URL=                 # pinged when the session dies
+
+# ── Logging ──
+MGP_LOG_LEVEL=info                    # debug | info | warn | error
+
+# ── Auth (direct-HTTP / SAPISIDHASH path only) ──
+MGP_SAPISID_COOKIE=SAPISID            # cookie Google signs internal requests with
+```
+
+Fixed values that are **not** env-overridable (edit `config.ts` to change them):
+Chrome launch flags (`--no-sandbox`, `--disable-blink-features=AutomationControlled`,
+`--window-size=1280,900`), the Voice origin `https://voice.google.com`, the sniffed
+API host `clients6.google.com/voice/`, the login-redirect host
+`accounts.google.com`, and the SAPISIDHASH digest origin.
+
+Paths are relative to the repo root. Empty values (`MGP_WEBHOOK_URL`,
+`MGP_REAUTH_ALERT_URL`) mean the feature is off.
+
 ## Install (one line)
 
 ```bash
