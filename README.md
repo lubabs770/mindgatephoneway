@@ -15,55 +15,31 @@ mutations, not blind polling.
 
 ## All configuration lives in one place
 
-**[`config.ts`](./config.ts)** — every setting, with sane defaults. Override any
-of them with a `.env` file (see [`.env.example`](./.env.example)). No other file
-hard-codes config.
+**[`config.ts`](./config.ts)** — every setting, with sane defaults, as plain
+values you edit directly. There is **no `.env` layer**: nothing here is a secret
+(the Google session lives in the Chrome profile dir, not in config), so a second
+copy of every key would only drift out of sync. No other file hard-codes config.
 
-### Default config, in full
+### What's in there
 
-Nothing below needs to be set — this is what you get on a fresh clone. Copy it to
-`.env` and uncomment only the lines you want to change.
+Nothing needs to be touched — these are the defaults on a fresh clone.
 
-```dotenv
-# ── Browser / session ──
-MGP_PROFILE_DIR=./.gvoice-profile     # persistent Chrome profile; login once
-MGP_CHROME_CHANNEL=chrome             # real Chrome, not bundled Chromium
-MGP_HEADLESS=true                     # bootstrap always forces headful anyway
-MGP_TIMEOUT_MS=60000                  # nav/selector wait before giving up
+| Group | Keys |
+|-------|------|
+| `browser` | `userDataDir` (`./.gvoice-profile`, login once), `channel` (`chrome`, not bundled Chromium), `headless` (`true`), `args` (stealth launch flags), `timeout` (`60_000` ms) |
+| `gvoice` | `origin`, `messagesUrl`, `apiHostMatch` (`clients6.google.com/voice/`, what the sniffer matches), `readySelector` (DOM proof we're logged in), `loginHostMatch` |
+| `capture` | `mode` (`sniff` = Google's JSON \| `dom` = scrape), `resyncEveryMs` (`300000`, safety net — capture is event-driven) |
+| `auth` | `sapisidCookie`, `hashOrigin` — direct-HTTP / SAPISIDHASH path only |
+| `sink` | `type` (`jsonl` \| `sqlite` \| `webhook`), `jsonlPath`, `sqlitePath`, `webhookUrl` |
+| `health` | `heartbeatPath` (touched on every capture), `reauthAlertUrl` (pinged when the session dies) |
+| `log` | `level` (`debug` \| `info` \| `warn` \| `error`) |
 
-# ── Google Voice ──
-MGP_GV_URL=https://voice.google.com/u/0/messages
-MGP_READY_SELECTOR=gv-thread-list, gv-annotation   # DOM proof we're logged in
+Paths are relative to the repo root. Empty strings (`webhookUrl`,
+`reauthAlertUrl`) mean the feature is off.
 
-# ── Capture ──
-MGP_CAPTURE_MODE=sniff                # sniff (Google's JSON) | dom (scrape)
-MGP_RESYNC_MS=300000                  # safety-net re-sync; capture is event-driven
-
-# ── Sink ──
-MGP_SINK=jsonl                        # jsonl | sqlite | webhook
-MGP_JSONL_PATH=./data/messages.jsonl
-MGP_SQLITE_PATH=./data/messages.db    # only used when MGP_SINK=sqlite
-MGP_WEBHOOK_URL=                      # required when MGP_SINK=webhook
-
-# ── Health ──
-MGP_HEARTBEAT=./data/heartbeat        # touched on every successful capture
-MGP_REAUTH_ALERT_URL=                 # pinged when the session dies
-
-# ── Logging ──
-MGP_LOG_LEVEL=info                    # debug | info | warn | error
-
-# ── Auth (direct-HTTP / SAPISIDHASH path only) ──
-MGP_SAPISID_COOKIE=SAPISID            # cookie Google signs internal requests with
-```
-
-Fixed values that are **not** env-overridable (edit `config.ts` to change them):
-Chrome launch flags (`--no-sandbox`, `--disable-blink-features=AutomationControlled`,
-`--window-size=1280,900`), the Voice origin `https://voice.google.com`, the sniffed
-API host `clients6.google.com/voice/`, the login-redirect host
-`accounts.google.com`, and the SAPISIDHASH digest origin.
-
-Paths are relative to the repo root. Empty values (`MGP_WEBHOOK_URL`,
-`MGP_REAUTH_ALERT_URL`) mean the feature is off.
+`headless` is the one setting with a runtime override: `npm run dev` passes
+`--headful` to the daemon so you can watch it work. `npm run bootstrap` is
+always headful.
 
 ## Install (one line)
 
@@ -107,13 +83,13 @@ the daemon runs headless off it.
 | Sink | `src/sink.ts` | sqlite / jsonl / webhook |
 | Auth | `src/auth.ts` | SAPISIDHASH helper (direct-HTTP path, optional) |
 
-## Capture modes (`MGP_CAPTURE_MODE`)
+## Capture modes (`capture.mode`)
 
 - **`sniff`** (default) — read Google's own `clients6.google.com/voice/` JSON
   responses. Structured, resilient to cosmetic UI changes.
 - **`dom`** — fall back to scraping the rendered thread list.
 
-## Sinks (`MGP_SINK`)
+## Sinks (`sink.type`)
 
 - **`jsonl`** (default) — appends to `data/messages.jsonl`. Pure JS, zero native
   deps, runs on a fresh clone with no build step.
@@ -123,20 +99,21 @@ the daemon runs headless off it.
   ```bash
   npm rebuild better-sqlite3 --build-from-source
   ```
-- **`webhook`** — POSTs each new message to `MGP_WEBHOOK_URL`.
+- **`webhook`** — POSTs each new message to `sink.webhookUrl`.
 
 ## Tuning the extractor
 
-Google's `voiceclient` JSON schema is undocumented and shifts. Run once with
-`MGP_LOG_LEVEL=debug`, inspect the raw payloads, and tighten `normalize()` in
+Google's `voiceclient` JSON schema is undocumented and shifts. Set
+`log.level: 'debug'` in `config.ts`, run once, inspect the raw payloads, and
+tighten `normalize()` in
 `src/extractor.ts` to match. Downstream only depends on the normalized shape.
 
 ## Long-running notes
 
 - Wrap `npm start` in `systemd`/`launchd`/`pm2` with auto-restart.
-- The daemon writes a heartbeat file (`MGP_HEARTBEAT`) on each capture — watchdog it.
+- The daemon writes a heartbeat file (`health.heartbeatPath`) on each capture — watchdog it.
 - On session expiry it detects the login redirect and fires a re-auth alert
-  (`MGP_REAUTH_ALERT_URL`) instead of dying silently; re-run `npm run bootstrap`.
+  (`health.reauthAlertUrl`) instead of dying silently; re-run `npm run bootstrap`.
 - Uses the real Chrome channel + `puppeteer-extra-plugin-stealth` to reduce
   bot-flagging.
 

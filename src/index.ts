@@ -9,6 +9,7 @@
  * Run under a supervisor (systemd/launchd/pm2). Bootstrap login first:
  *   npm run bootstrap   # headful, once
  *   npm start           # headless daemon
+ *   npm run dev         # same daemon, headful (passes --headful)
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -62,7 +63,9 @@ async function persist(sink: Sink, messages: Message[]): Promise<void> {
 
 async function main(): Promise<void> {
   const sink = createSink();
-  const { browser, page } = await launch();
+  // `--headful` (npm run dev) shows the window; otherwise cfg.browser.headless.
+  const headful = process.argv.includes('--headful');
+  const { browser, page } = await launch(headful ? { headless: false } : {});
 
   // --- sniff mode: capture Google's own JSON payloads as they arrive ---
   if (cfg.capture.mode === 'sniff') {
