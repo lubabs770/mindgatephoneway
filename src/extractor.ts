@@ -2,9 +2,9 @@
  * Turns Google Voice's internal JSON payloads into normalized message objects.
  *
  * NOTE: Google's voiceclient schema is undocumented and shifts. The mapping
- * below is a best-effort starting point — run once with MGP_LOG_LEVEL=debug,
- * inspect the raw payloads it logs, and tighten `normalize()` to match what
- * you actually see. Everything downstream only needs the shape returned here.
+ * below is a best-effort starting point — set `log.level: 'debug'` in config.ts,
+ * run once, inspect the raw payloads it logs, and tighten `normalize()` to match
+ * what you actually see. Everything downstream only needs the shape returned here.
  */
 import log from './log';
 import type { Message } from './types';

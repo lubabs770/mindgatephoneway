@@ -21,7 +21,7 @@ function makeSqlite(): Sink {
     throw new Error(
       "sqlite sink needs the better-sqlite3 native addon, which isn't built. " +
         'Either run `npm rebuild better-sqlite3 --build-from-source`, or use the ' +
-        'zero-dependency default with `MGP_SINK=jsonl`. Original: ' +
+        'zero-dependency default by setting `sink.type: \'jsonl\'` in config.ts. Original: ' +
         (e as Error).message,
     );
   }
@@ -69,7 +69,7 @@ function makeJsonl(): Sink {
 }
 
 function makeWebhook(): Sink {
-  if (!cfg.sink.webhookUrl) throw new Error('MGP_WEBHOOK_URL is required for webhook sink');
+  if (!cfg.sink.webhookUrl) throw new Error('config.sink.webhookUrl is required for the webhook sink');
   return {
     async save(m: Message): Promise<boolean> {
       await fetch(cfg.sink.webhookUrl, {

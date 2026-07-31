@@ -83,6 +83,155 @@ the daemon runs headless off it.
 | Sink | `src/sink.ts` | sqlite / jsonl / webhook |
 | Auth | `src/auth.ts` | SAPISIDHASH helper (direct-HTTP path, optional) |
 
+## How to use it
+
+### As a daemon (the normal path)
+
+```bash
+npm run bootstrap   # once — headful login, saves the profile
+npm start           # headless daemon; writes to the configured sink
+npm run dev         # same daemon, headful window (passes --headful)
+npm run build && npm run start:prod   # compiled: dist/src/index.js
+npm run typecheck   # tsc --noEmit
+```
+
+The daemon owns the loop: launch → sniff responses → extract → dedupe → sink →
+heartbeat. It exits `2` when the Google session is dead (re-run `bootstrap`) and
+`1` on any other fatal. That exit code is the supervisor's cue to alert rather
+than restart-loop.
+
+### Reading what it captured
+
+`jsonl` sink — one JSON object per line in `data/messages.jsonl`:
+
+```json
+{"id":"3f2…","threadId":"t.+1555…","direction":"in","sender":"+15551234567","body":"hey","ts":1737052800000,"raw":{…},"captured":1737052801122}
+```
+
+```bash
+tail -f data/messages.jsonl | jq -r '"\(.sender): \(.body)"'
+```
+
+`sqlite` sink — table `messages(id PK, thread_id, direction, sender, body, ts, raw, captured)`,
+WAL mode, `INSERT OR IGNORE` on `id`:
+
+```bash
+sqlite3 data/messages.db "SELECT sender, body FROM messages ORDER BY ts DESC LIMIT 10;"
+```
+
+`webhook` sink — one `POST` per new message to `sink.webhookUrl`,
+`content-type: application/json`, body = the `Message` object (no `captured`
+field; add your own receive timestamp).
+
+### As a library
+
+Every module is importable on its own — nothing runs on import except
+`src/index.ts`'s `main()`. Useful when you want the capture pieces but your own
+orchestration.
+
+```ts
+import cfg from './config';
+import { launch, needsLogin } from './src/browser';
+import { extract } from './src/extractor';
+import { createSink } from './src/sink';
+import * as watcher from './src/watcher';
+
+const sink = createSink();                       // honors cfg.sink.type
+const { browser, page } = await launch();        // persistent stealth Chrome
+
+page.on('response', async (resp) => {
+  if (!resp.url().includes(cfg.gvoice.apiHostMatch) || resp.status() !== 200) return;
+  const payload = JSON.parse((await resp.text()).replace(/^\)\]\}'\s*/, ''));
+  for (const m of extract(payload)) await sink.save(m);
+});
+
+await page.goto(cfg.gvoice.messagesUrl, { waitUntil: 'domcontentloaded' });
+if (needsLogin(page)) throw new Error('re-run npm run bootstrap');
+
+const detach = await watcher.attach(page, async () => {
+  await page.reload({ waitUntil: 'domcontentloaded' });
+});
+// …later: detach(); await browser.close();
+```
+
+## Exposed API
+
+### `config.ts`
+
+| Export | Type | Notes |
+|--------|------|-------|
+| `default` | `Config` | the whole settings object; import as `cfg` |
+| `Config` | `interface` | shape of the above |
+
+### `src/types.ts` — the contracts everything else speaks
+
+| Export | Type | Notes |
+|--------|------|-------|
+| `Message` | `interface` | `{ id, threadId, direction, sender, body, ts, raw }` — all fields but `id` and `raw` are nullable. The **only** shape downstream depends on. |
+| `Sink` | `interface` | `{ save(m: Message): boolean \| Promise<boolean> }` — return `true` if the message was newly stored |
+| `CaptureMode` | `'sniff' \| 'dom'` | |
+| `SinkType` | `'sqlite' \| 'jsonl' \| 'webhook'` | |
+| `LogLevel` | `'debug' \| 'info' \| 'warn' \| 'error'` | |
+
+### `src/browser.ts`
+
+| Export | Signature | Notes |
+|--------|-----------|-------|
+| `launch` | `({ headless? }?) => Promise<Session>` | `Session = { browser, page }`. `headless` omitted → `cfg.browser.headless`. Applies the stealth plugin, the persistent profile, and `cfg.browser.timeout` as the page default. |
+| `needsLogin` | `(page: Page) => boolean` | true when the current URL bounced to `accounts.google.com` |
+| `Session` | `interface` | `{ browser: Browser; page: Page }` |
+
+### `src/extractor.ts`
+
+| Export | Signature | Notes |
+|--------|-----------|-------|
+| `extract` | `(payload: unknown) => Message[]` | parsed Voice JSON → normalized messages. Never throws; unrecognized records are dropped with a `debug` log. Pure — safe to unit-test against saved payloads. |
+
+### `src/sink.ts`
+
+| Export | Signature | Notes |
+|--------|-----------|-------|
+| `createSink` | `() => Sink` | builds the sink named by `cfg.sink.type`. Throws on unknown type, on a missing `webhookUrl`, or when `sqlite` is chosen and `better-sqlite3` isn't built. Creates parent dirs itself. |
+
+Rolling your own sink is just the interface — no registration needed:
+
+```ts
+const memory: Sink = { save: (m) => (console.log(m.body), true) };
+```
+
+### `src/watcher.ts`
+
+| Export | Signature | Notes |
+|--------|-----------|-------|
+| `attach` | `(page, onChange) => Promise<() => void>` | injects a `MutationObserver` (re-installed on every navigation) and returns a **detach** function that clears the safety-net timer |
+| `OnChange` | `(reason: ChangeReason) => void \| Promise<void>` | your callback |
+| `ChangeReason` | `'mutation' \| 'resync'` | `mutation` = real DOM change, `resync` = the slow `cfg.capture.resyncEveryMs` fallback |
+
+`attach` calls `page.exposeFunction('__mgpOnMutation', …)` — that name is taken;
+don't expose your own function under it.
+
+### `src/auth.ts` — optional, direct-HTTP path only
+
+| Export | Signature | Notes |
+|--------|-----------|-------|
+| `sapisidHash` | `(sapisid, { origin?, nowSec? }?) => string` | returns `SAPISIDHASH <ts>_<sha1(ts SP sapisid SP origin)>` for the `Authorization` header. `origin` defaults to `cfg.auth.hashOrigin` and **must** match the request's `Origin`. |
+| `sapisidFromCookies` | `(cookies) => string \| null` | pulls `cfg.auth.sapisidCookie` out of a puppeteer cookie array |
+
+```ts
+const sapisid = sapisidFromCookies(await browser.cookies());
+const headers = {
+  Authorization: sapisidHash(sapisid!),
+  Origin: cfg.auth.hashOrigin,
+};
+```
+
+### `src/log.ts`
+
+| Export | Signature | Notes |
+|--------|-----------|-------|
+| `debug` / `info` / `warn` / `error` | `(...args: unknown[]) => void` | level-filtered by `cfg.log.level`, read **once** at import — changing it at runtime has no effect. `error` goes to stderr, the rest to stdout. |
+| `default` | `{ debug, info, warn, error }` | same four, bundled |
+
 ## Capture modes (`capture.mode`)
 
 - **`sniff`** (default) — read Google's own `clients6.google.com/voice/` JSON
